@@ -1,10 +1,11 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Neon Runner</title>
+    <title>Flapcaster - The Farcaster Flappy Game</title>
     <script src="https://unpkg.com/@farcade/game-sdk@latest/dist/index.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
     <style>
       body {
         margin: 0;
@@ -12,351 +13,592 @@
         display: flex;
         justify-content: center;
         align-items: center;
-        min-height: 100vh;
-        background: #000;
-        font-family: 'Arial', sans-serif;
-      }
-
-      .emulator-frame {
-        position: relative;
-        width: 100%;
-        max-width: 400px;
-        background: #1a1a1a;
-        border-radius: 10px;
-        padding: 1px;
-        box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-      }
-
-      .emulator-header {
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-        padding: 6px;
-        color: white;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-      }
-
-      p {
-        margin: 0;
-      }
-
-      .game-container {
-        position: relative;
-        width: 100%;
-        padding-top: 160%;
-        background: #000;
+        height: 100vh;
+        background-color: #2d1b5a;
+        font-family: "Press Start 2P", cursive;
         overflow: hidden;
-        border-radius: 0 0 10px 0;
+        user-select: none;
+        position: relative;
       }
-
       #gameCanvas {
-        position: absolute;
-        top: 0;
-        left: 0;
+        display: block;
+        max-width: 400px;
+        max-height: 800px;
         width: 100%;
         height: 100%;
-        background: #000;
-        border-radius: 0 0 10px 0;
+        background-color: #2d1b5a;
+        image-rendering: pixelated;
       }
-
-      #ui {
+      .hud {
         position: absolute;
         top: 20px;
         width: 100%;
+        color: #39ff14;
+        text-shadow: 0 0 10px #00ffff;
         text-align: center;
-        color: #0ff;
-        font-family: 'Arial', sans-serif;
+        z-index: 10;
+      }
+      .hud-score {
+        margin-top: 10px;
         font-size: 24px;
-        text-shadow: 0 0 10px #0ff;
-        z-index: 2;
-      }
-
-      .screen {
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        background: rgba(0, 0, 0, 0.9);
-        color: #0ff;
-        text-align: center;
-        padding: 20px;
-        width: 80%;
-        border-radius: 10px;
-        z-index: 3;
-        border: 2px solid #0ff;
-        text-shadow: 0 0 10px #0ff;
-        box-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
-      }
-
-      .touch-controls {
-        position: absolute;
-        bottom: 40px;
-        width: 100%;
-        display: none;
-        justify-content: center;
-        gap: 40px;
-        z-index: 2;
-      }
-
-      .touch-btn {
-        width: 60px;
-        height: 60px;
-        background: rgba(0, 255, 255, 0.2);
-        border: 2px solid #0ff;
-        border-radius: 50%;
-        box-shadow: 0 0 10px #0ff;
-      }
-
-      @media (max-width: 768px) {
-        .touch-controls {
-          display: flex;
-        }
       }
     </style>
   </head>
   <body>
-    <div class="emulator-frame">
-      <div class="emulator-header">
-        <div>Farcade</div>
-        <p style="font-size: 12px; color: #888">Mini App</p>
-      </div>
-      <div class="game-container">
-        <div id="ui">Score: <span id="score">0</span></div>
-        <canvas id="gameCanvas"></canvas>
-        <div id="startScreen" class="screen">
-          <h1>NEON RUNNER</h1>
-          <p>Avoid the walls!</p>
-          <p>← → to move</p>
-          <p>Press Space to Start</p>
-        </div>
-        <div id="gameOverScreen" class="screen" style="display: none">
-          <h1>GAME OVER</h1>
-          <p>Score: <span id="finalScore">0</span></p>
-          <p>Press Space to Restart</p>
-        </div>
-        <div class="touch-controls">
-          <div id="touchLeft" class="touch-btn"></div>
-          <div id="touchRight" class="touch-btn"></div>
-        </div>
-      </div>
+    <div class="hud">
+      <div class="hud-score">SCORE: <span id="score">0</span></div>
     </div>
-
+    <canvas id="gameCanvas" width="400" height="800"></canvas>
+    <audio id="backgroundMusic" loop>
+      <source src="data:audio/mpeg;base64,//uQRAAAAWHPb4nGXZgAAA9D//w==..." type="audio/mpeg" />
+    </audio>
     <script>
-      const canvas = document.getElementById('gameCanvas')
-      const ctx = canvas.getContext('2d')
-      const startScreen = document.getElementById('startScreen')
-      const gameOverScreen = document.getElementById('gameOverScreen')
-      const scoreDisplay = document.getElementById('score')
-      const finalScoreDisplay = document.getElementById('finalScore')
+      (function () {
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+        ctx.imageSmoothingEnabled = false;
 
-      // Set canvas size (5:8 aspect ratio)
-      canvas.width = 500
-      canvas.height = 800
+        // Logical dimensions
+        const gameWidth = 400;
+        const gameHeight = 800;
+        // High-DPI canvas scaling
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = gameWidth * dpr;
+        canvas.height = gameHeight * dpr;
+        canvas.style.width = gameWidth + "px";
+        canvas.style.height = gameHeight + "px";
+        ctx.scale(dpr, dpr);
 
-      let gameState = 'start'
-      let score = 0
-      let speed = 5
-      let walls = []
+        // Detect iOS for fallback logic
+        const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
 
-      class Player {
-        constructor() {
-          this.width = 20
-          this.height = 20
-          this.x = canvas.width / 2 - this.width / 2
-          this.y = canvas.height - 100
-          this.speed = 6
-          this.trail = []
-          this.maxTrailLength = 10
-        }
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const backgroundMusic = document.getElementById("backgroundMusic");
+        let isAudioUnlocked = false;
 
-        update() {
-          if (keys['ArrowLeft'] || keys['a']) this.x -= this.speed
-          if (keys['ArrowRight'] || keys['d']) this.x += this.speed
-
-          this.x = Math.max(0, Math.min(canvas.width - this.width, this.x))
-
-          // Update trail
-          this.trail.unshift({ x: this.x, y: this.y })
-          if (this.trail.length > this.maxTrailLength) {
-            this.trail.pop()
+        function unlockAudio() {
+          if (audioContext.state === "suspended" && !isAudioUnlocked) {
+            audioContext
+              .resume()
+              .then(() => {
+                isAudioUnlocked = true;
+                updateAudio();
+              })
+              .catch((error) => {
+                console.error("Failed to unlock audio:", error);
+                isAudioUnlocked = false;
+              });
+          } else if (audioContext.state === "running") {
+            isAudioUnlocked = true;
+            updateAudio();
           }
         }
 
-        draw() {
-          // Draw trail
-          this.trail.forEach((pos, i) => {
-            const alpha = 1 - i / this.maxTrailLength
-            ctx.fillStyle = `rgba(0, 255, 255, ${alpha})`
-            ctx.fillRect(pos.x, pos.y, this.width, this.height)
-          })
-
-          // Draw player
-          ctx.fillStyle = '#0ff'
-          ctx.shadowBlur = 20
-          ctx.shadowColor = '#0ff'
-          ctx.fillRect(this.x, this.y, this.width, this.height)
-          ctx.shadowBlur = 0
+        let isMuted = false;
+        if (window.FarcadeSDK) {
+          window.FarcadeSDK.on("play_again", reset);
+          window.FarcadeSDK.on("toggle_mute", (data) => {
+            isMuted = data?.isMuted ?? false;
+            updateAudio();
+          });
         }
 
-        checkCollision(wall) {
-          return (
-            this.x < wall.x + wall.width &&
-            this.x + this.width > wall.x &&
-            this.y < wall.y + wall.height &&
-            this.y + this.height > wall.y
-          )
-        }
-      }
+        const COLORS = {
+          BACKGROUND: "#2D1B5A",
+          GRID: "#00FFFF80",
+          BIRD: "#FFFF00",
+          OBSTACLE_FILL: "#5B3E96",
+          OBSTACLE_STROKE: "#FF00FF",
+          TEXT: "#39FF14",
+          ALIEN_GLOW: "#39FF14",
+          PARTICLE_EXPLOSION: "#FF00FF",
+        };
 
-      class Wall {
-        constructor() {
-          this.width = Math.random() * 200 + 100
-          this.height = 20
-          this.x = Math.random() * (canvas.width - this.width)
-          this.y = -this.height
-        }
+        const CONFIG = {
+          GRAVITY: 0.5,
+          JUMP_VELOCITY: -9,
+          OBSTACLE_WIDTH: 50,
+          OBSTACLE_SPACING: 300,
+          MIN_GAP_HEIGHT: 150,
+          INITIAL_GAP: 300, // initial gap height
+          INITIAL_SPEED: 2.5, // updated initial speed
+          GRID_SIZE: 50,
+          ANIMATION_SPEED: 0.1,
+          NUM_FRAMES: 6,
+          PIXEL_SCALE: 4,
+          ALIEN_GLOW_BLUR: 10,
+          GRID_GLOW_BLUR: 5,
+          FADE_DURATION: 30,
+        };
 
-        update() {
-          this.y += speed
-        }
+        const RENDER_SCALE = 1.5;
 
-        draw() {
-          ctx.fillStyle = '#f0f'
-          ctx.shadowBlur = 20
-          ctx.shadowColor = '#f0f'
-          ctx.fillRect(this.x, this.y, this.width, this.height)
-          ctx.shadowBlur = 0
-        }
-      }
+        let gameState = "ready";
+        let score = 0;
+        let obstacleSpeed = CONFIG.INITIAL_SPEED;
+        let backgroundOffset = 0;
+        let frameCount = 0;
+        let player;
+        let obstacles = [];
+        let particles = [];
+        let bgCanvas, bgCtx;
 
-      let player = new Player()
-      const keys = {}
+        // Create an offscreen canvas for the background grid
+        function createBackgroundCanvas() {
+          bgCanvas = document.createElement("canvas");
+          bgCanvas.width = gameWidth;
+          bgCanvas.height = gameHeight;
+          bgCtx = bgCanvas.getContext("2d");
 
-      // Input handlers
-      document.addEventListener('keydown', (e) => {
-        keys[e.key] = true
-        if (e.key === ' ') {
-          if (gameState === 'start') startGame()
-          if (gameState === 'gameover') resetGame()
-        }
-      })
-      document.addEventListener('keyup', (e) => (keys[e.key] = false))
+          // Draw static background once
+          bgCtx.fillStyle = COLORS.BACKGROUND;
+          bgCtx.fillRect(0, 0, gameWidth, gameHeight);
 
-      // Touch controls
-      const touchLeft = document.getElementById('touchLeft')
-      const touchRight = document.getElementById('touchRight')
+          bgCtx.strokeStyle = COLORS.GRID;
+          bgCtx.lineWidth = 1;
+          bgCtx.shadowBlur = CONFIG.GRID_GLOW_BLUR;
+          bgCtx.shadowColor = COLORS.GRID;
 
-      touchLeft.addEventListener('touchstart', () => (keys['ArrowLeft'] = true))
-      touchLeft.addEventListener('touchend', () => (keys['ArrowLeft'] = false))
-      touchRight.addEventListener(
-        'touchstart',
-        () => (keys['ArrowRight'] = true)
-      )
-      touchRight.addEventListener(
-        'touchend',
-        () => (keys['ArrowRight'] = false)
-      )
-
-      function startGame() {
-        gameState = 'playing'
-        startScreen.style.display = 'none'
-        resetGame()
-        // Initialize Farcade SDK
-        window.FarcadeSDK.singlePlayer.actions.ready()
-      }
-
-      function resetGame() {
-        player = new Player()
-        walls = []
-        score = 0
-        speed = 5
-        gameState = 'playing'
-        gameOverScreen.style.display = 'none'
-      }
-
-      function gameOver() {
-        gameState = 'gameover'
-        gameOverScreen.style.display = 'block'
-        finalScoreDisplay.textContent = Math.floor(score)
-        // Report score to Farcade SDK
-        window.FarcadeSDK.singlePlayer.actions.gameOver({
-          score: Math.floor(score),
-        })
-      }
-
-      function update() {
-        if (gameState !== 'playing') return
-
-        player.update()
-
-        // Spawn new walls
-        if (Math.random() < 0.02) {
-          walls.push(new Wall())
-        }
-
-        // Update walls
-        for (let i = walls.length - 1; i >= 0; i--) {
-          walls[i].update()
-
-          // Check collision
-          if (player.checkCollision(walls[i])) {
-            gameOver()
-            return
+          for (let x = 0; x < gameWidth; x += CONFIG.GRID_SIZE) {
+            bgCtx.beginPath();
+            bgCtx.moveTo(x, 0);
+            bgCtx.lineTo(x, gameHeight);
+            bgCtx.stroke();
+          }
+          for (let y = 0; y <= gameHeight; y += CONFIG.GRID_SIZE) {
+            bgCtx.beginPath();
+            bgCtx.moveTo(0, y);
+            bgCtx.lineTo(gameWidth, y);
+            bgCtx.stroke();
           }
 
-          // Remove off-screen walls
-          if (walls[i].y > canvas.height) {
-            walls.splice(i, 1)
+          // Reset shadow to avoid interfering with other drawings
+          bgCtx.shadowBlur = 0;
+        }
+
+        // === SOUND EFFECTS ===
+        function playFlapSound() {
+          if (isMuted || !isAudioUnlocked || audioContext.state !== "running") return;
+          const duration = 0.5;
+          const now = audioContext.currentTime;
+          const sampleRate = audioContext.sampleRate;
+          const noiseBufferSize = sampleRate * duration;
+          const noiseBuffer = audioContext.createBuffer(1, noiseBufferSize, sampleRate);
+          const noiseData = noiseBuffer.getChannelData(0);
+          for (let i = 0; i < noiseBufferSize; i++) {
+            noiseData[i] = Math.random() * 2 - 1;
+          }
+          const noiseSource = audioContext.createBufferSource();
+          noiseSource.buffer = noiseBuffer;
+          const noiseFilter = audioContext.createBiquadFilter();
+          noiseFilter.type = "lowpass";
+          noiseFilter.frequency.setValueAtTime(300, now);
+          noiseFilter.frequency.linearRampToValueAtTime(1500, now + duration);
+          const oscillator = audioContext.createOscillator();
+          oscillator.type = "sine";
+          oscillator.frequency.setValueAtTime(200, now);
+          oscillator.frequency.linearRampToValueAtTime(1200, now + duration);
+          const compositeGain = audioContext.createGain();
+          compositeGain.gain.setValueAtTime(0.5, now);
+          compositeGain.gain.exponentialRampToValueAtTime(0.01, now + duration);
+          noiseSource.connect(noiseFilter);
+          noiseFilter.connect(compositeGain);
+          oscillator.connect(compositeGain);
+          compositeGain.connect(audioContext.destination);
+          noiseSource.start();
+          noiseSource.stop(now + duration);
+          oscillator.start();
+          oscillator.stop(now + duration);
+        }
+
+        function playExplosionSound() {
+          if (isMuted || !isAudioUnlocked || audioContext.state !== "running") return;
+          const duration = 1.0;
+          const now = audioContext.currentTime;
+          const oscillator1 = audioContext.createOscillator();
+          oscillator1.type = "sawtooth";
+          oscillator1.frequency.setValueAtTime(100, now);
+          oscillator1.frequency.linearRampToValueAtTime(50, now + duration);
+          const noiseBufferSize = audioContext.sampleRate * duration;
+          const noiseBuffer = audioContext.createBuffer(1, noiseBufferSize, audioContext.sampleRate);
+          const noiseData = noiseBuffer.getChannelData(0);
+          for (let i = 0; i < noiseBufferSize; i++) {
+            noiseData[i] = Math.random() * 2 - 1;
+          }
+          const noiseSource = audioContext.createBufferSource();
+          noiseSource.buffer = noiseBuffer;
+          const noiseFilter = audioContext.createBiquadFilter();
+          noiseFilter.type = "bandpass";
+          noiseFilter.frequency.setValueAtTime(150, now);
+          noiseFilter.Q.value = 1;
+          const rumbleOsc = audioContext.createOscillator();
+          rumbleOsc.type = "sine";
+          rumbleOsc.frequency.setValueAtTime(40, now);
+          rumbleOsc.frequency.linearRampToValueAtTime(20, now + duration);
+          const compositeGain = audioContext.createGain();
+          compositeGain.gain.setValueAtTime(1.2, now);
+          compositeGain.gain.exponentialRampToValueAtTime(0.01, now + duration);
+          oscillator1.connect(compositeGain);
+          noiseSource.connect(noiseFilter);
+          noiseFilter.connect(compositeGain);
+          rumbleOsc.connect(compositeGain);
+          compositeGain.connect(audioContext.destination);
+          oscillator1.start();
+          oscillator1.stop(now + duration);
+          noiseSource.start();
+          noiseSource.stop(now + duration);
+          rumbleOsc.start();
+          rumbleOsc.stop(now + duration);
+        }
+
+        function playScoreSound() {
+          if (isMuted || !isAudioUnlocked || audioContext.state !== "running") return;
+          const duration = 0.3;
+          const now = audioContext.currentTime;
+          const oscillator = audioContext.createOscillator();
+          oscillator.type = "triangle";
+          oscillator.frequency.setValueAtTime(800, now);
+          oscillator.frequency.linearRampToValueAtTime(1200, now + duration);
+          const gainNode = audioContext.createGain();
+          gainNode.gain.setValueAtTime(0.4, now);
+          gainNode.gain.exponentialRampToValueAtTime(0.01, now + duration);
+          oscillator.connect(gainNode);
+          gainNode.connect(audioContext.destination);
+          oscillator.start();
+          oscillator.stop(now + duration);
+        }
+
+        function updateAudio() {
+          backgroundMusic.muted = isMuted;
+          if (!isMuted && backgroundMusic.paused) {
+            backgroundMusic.play().catch((error) => console.log("Music play failed:", error));
           }
         }
 
-        // Increase score and speed
-        score += 0.1
-        speed = 5 + Math.floor(score / 100)
-
-        scoreDisplay.textContent = Math.floor(score)
-      }
-
-      function draw() {
-        // Clear canvas with fade effect
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.1)'
-        ctx.fillRect(0, 0, canvas.width, canvas.height)
-
-        // Draw grid effect
-        ctx.strokeStyle = 'rgba(0, 255, 255, 0.1)'
-        const gridSize = 40
-        for (let i = 0; i < canvas.width; i += gridSize) {
-          ctx.beginPath()
-          ctx.moveTo(i, 0)
-          ctx.lineTo(i, canvas.height)
-          ctx.stroke()
+        async function loadSpriteFromURL(url) {
+          return new Promise((resolve, reject) => {
+            const img = new Image();
+            img.crossOrigin = "Anonymous";
+            img.onload = () => {
+              player.spriteSheet = img;
+              player.frameWidth = img.width / CONFIG.NUM_FRAMES;
+              player.frameHeight = img.height;
+              player.radius = (Math.max(player.frameWidth, player.frameHeight) * RENDER_SCALE) / 2;
+              resolve();
+            };
+            img.onerror = reject;
+            img.src = url;
+          });
         }
 
-        walls.forEach((wall) => wall.draw())
-        player.draw()
-      }
+        function createObstacle(isFirst = false) {
+          let gapY;
+          let minGapY, maxGapY;
+          // Adjust gap position range based on score
+          if (score <= 10) {
+            [minGapY, maxGapY] = [300, 500];
+          } else if (score <= 25) {
+            [minGapY, maxGapY] = [250, 550];
+          } else if (score <= 50) {
+            [minGapY, maxGapY] = [200, 600];
+          } else if (score <= 100) {
+            [minGapY, maxGapY] = [150, 650];
+          } else {
+            [minGapY, maxGapY] = [150, 650];
+          }
+          gapY = Math.random() * (maxGapY - minGapY) + minGapY;
 
-      function gameLoop() {
-        update()
-        draw()
-        requestAnimationFrame(gameLoop)
-      }
+          // Reduce gap height by 2 per score, with a minimum of MIN_GAP_HEIGHT
+          const gapHeight = Math.max(CONFIG.INITIAL_GAP - score * 2, CONFIG.MIN_GAP_HEIGHT);
+          return {
+            x: isFirst ? 450 : gameWidth,
+            gapY,
+            gapHeight,
+            width: CONFIG.OBSTACLE_WIDTH,
+            passed: false,
+          };
+        }
 
-      // Handle window resize
-      function resizeCanvas() {
-        const container = document.querySelector('.game-container')
-        const rect = container.getBoundingClientRect()
-        canvas.style.width = `${rect.width}px`
-        canvas.style.height = `${rect.height}px`
-      }
+        function createExplosionParticles(x, y) {
+          for (let i = 0; i < 30; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const speed = Math.random() * 5 + 2;
+            particles.push({
+              x,
+              y,
+              vx: Math.cos(angle) * speed,
+              vy: Math.sin(angle) * speed,
+              lifetime: 60,
+              color: COLORS.PARTICLE_EXPLOSION,
+            });
+          }
+        }
 
-      window.addEventListener('resize', resizeCanvas)
-      resizeCanvas()
+        function drawPlayer() {
+          if (!player.isVisible) return;
+          ctx.save();
+          ctx.globalAlpha = player.opacity;
+          if (player.spriteSheet) {
+            const isJumping = player.velocityY < 0;
+            const frameSpeed = CONFIG.ANIMATION_SPEED * (isJumping ? 1.5 : 1);
+            const currentFrame = Math.floor((frameCount * frameSpeed) % CONFIG.NUM_FRAMES);
+            const offsetX = (player.frameWidth * RENDER_SCALE) / 2;
+            const offsetY = (player.frameHeight * RENDER_SCALE) / 2;
+            const sourceX = currentFrame * player.frameWidth;
+            const sourceY = 0;
+            if (!isIOS) {
+              ctx.shadowBlur = CONFIG.ALIEN_GLOW_BLUR;
+              ctx.shadowColor = "#00FFFF";
+              ctx.globalCompositeOperation = "lighter";
+              ctx.drawImage(
+                player.spriteSheet,
+                sourceX,
+                sourceY,
+                player.frameWidth,
+                player.frameHeight,
+                player.x - offsetX,
+                player.y - offsetY,
+                player.frameWidth * RENDER_SCALE,
+                player.frameHeight * RENDER_SCALE
+              );
+              ctx.globalCompositeOperation = "source-over";
+            } else {
+              ctx.save();
+              ctx.globalCompositeOperation = "lighter";
+              ctx.shadowBlur = 30;
+              ctx.shadowColor = "rgba(255,255,255,0.8)";
+              ctx.globalAlpha = 1;
+              ctx.drawImage(
+                player.spriteSheet,
+                sourceX,
+                sourceY,
+                player.frameWidth,
+                player.frameHeight,
+                player.x - offsetX,
+                player.y - offsetY,
+                player.frameWidth * RENDER_SCALE,
+                player.frameHeight * RENDER_SCALE
+              );
+              ctx.restore();
+              ctx.drawImage(
+                player.spriteSheet,
+                sourceX,
+                sourceY,
+                player.frameWidth,
+                player.frameHeight,
+                player.x - offsetX,
+                player.y - offsetY,
+                player.frameWidth * RENDER_SCALE,
+                player.frameHeight * RENDER_SCALE
+              );
+            }
+          } else {
+            ctx.translate(player.x, player.y);
+            ctx.fillStyle = COLORS.BIRD;
+            ctx.beginPath();
+            ctx.rect(-player.radius, -player.radius, player.radius * 2, player.radius * 1.5);
+            ctx.fill();
+          }
+          ctx.restore();
+        }
 
-      // Start game loop
-      gameLoop()
+        function updateScoreDisplay() {
+          document.getElementById("score").textContent = score;
+        }
+
+        function update() {
+          if (gameState === "playing") {
+            player.velocityY += CONFIG.GRAVITY;
+            player.y += player.velocityY;
+            obstacles.forEach((obstacle) => {
+              obstacle.x -= obstacleSpeed;
+              if (!obstacle.passed && player.x > obstacle.x + obstacle.width) {
+                score++;
+                obstacle.passed = true;
+                // Increase speed by 0.05 per score (starting from 2.5)
+                obstacleSpeed = CONFIG.INITIAL_SPEED + score * 0.05;
+                updateScoreDisplay();
+                playScoreSound();
+              }
+            });
+            if (obstacles.length === 0 || obstacles[obstacles.length - 1].x < gameWidth - CONFIG.OBSTACLE_SPACING) {
+              obstacles.push(createObstacle());
+            }
+            obstacles = obstacles.filter((o) => o.x > -o.width);
+            const backgroundScrollSpeed = obstacleSpeed * -1;
+            backgroundOffset -= backgroundScrollSpeed;
+            if (player.y - player.radius < 0 || player.y + player.radius > gameHeight) {
+              gameOver();
+              return;
+            }
+            for (const obstacle of obstacles) {
+              if (
+                player.x + player.radius > obstacle.x &&
+                player.x - player.radius < obstacle.x + obstacle.width &&
+                (player.y - player.radius < obstacle.gapY - obstacle.gapHeight / 2 ||
+                  player.y + player.radius > obstacle.gapY + obstacle.gapHeight / 2)
+              ) {
+                gameOver();
+                return;
+              }
+            }
+          } else if (gameState === "gameOver" && player.fadeFrame > 0) {
+            player.fadeFrame--;
+            player.opacity = player.fadeFrame / CONFIG.FADE_DURATION;
+            if (player.fadeFrame <= 0) {
+              player.isVisible = false;
+            }
+          }
+          particles.forEach((particle) => {
+            particle.x += particle.vx;
+            particle.y += particle.vy;
+            particle.lifetime--;
+          });
+          particles = particles.filter((p) => p.lifetime > 0);
+          frameCount++;
+        }
+
+        function render() {
+          const modOffset = ((backgroundOffset % gameWidth) + gameWidth) % gameWidth;
+          ctx.clearRect(0, 0, gameWidth, gameHeight);
+          ctx.drawImage(bgCanvas, -modOffset, 0);
+          if (modOffset > 0) {
+            ctx.drawImage(bgCanvas, -modOffset + gameWidth, 0);
+          }
+          obstacles.forEach((obstacle) => {
+            ctx.fillStyle = COLORS.OBSTACLE_FILL;
+            ctx.fillRect(obstacle.x, 0, obstacle.width, obstacle.gapY - obstacle.gapHeight / 2);
+            ctx.fillRect(
+              obstacle.x,
+              obstacle.gapY + obstacle.gapHeight / 2,
+              obstacle.width,
+              gameHeight - (obstacle.gapY + obstacle.gapHeight / 2)
+            );
+            ctx.strokeStyle = COLORS.OBSTACLE_STROKE;
+            ctx.lineWidth = 2;
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = COLORS.OBSTACLE_STROKE;
+            ctx.strokeRect(obstacle.x, 0, obstacle.width, obstacle.gapY - obstacle.gapHeight / 2);
+            ctx.strokeRect(
+              obstacle.x,
+              obstacle.gapY + obstacle.gapHeight / 2,
+              obstacle.width,
+              gameHeight - (obstacle.gapY + obstacle.gapHeight / 2)
+            );
+            ctx.shadowBlur = 0;
+          });
+          drawPlayer();
+          particles.forEach((particle) => {
+            ctx.fillStyle = particle.color;
+            ctx.shadowBlur = 5;
+            ctx.shadowColor = particle.color;
+            ctx.beginPath();
+            ctx.arc(particle.x, particle.y, 6, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.shadowBlur = 0;
+          });
+          if (gameState === "ready") {
+            ctx.fillStyle = COLORS.TEXT;
+            ctx.font = '24px "Press Start 2P"';
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = "#00FFFF";
+            const text = "TAP TO START";
+            const startY = player.y + 150;
+            ctx.fillText(text, gameWidth / 2, startY);
+            ctx.shadowBlur = 0;
+          }
+        }
+
+        function gameLoop() {
+          update();
+          render();
+          requestAnimationFrame(gameLoop);
+        }
+
+        function gameOver() {
+          createExplosionParticles(player.x, player.y);
+          playExplosionSound();
+          gameState = "gameOver";
+          player.fadeFrame = CONFIG.FADE_DURATION;
+          player.opacity = 1;
+          window.FarcadeSDK?.singlePlayer.actions.gameOver({ score });
+          setTimeout(reset, 1000);
+        }
+
+        function handleInput(event) {
+          event.preventDefault();
+          unlockAudio();
+          switch (gameState) {
+            case "ready":
+              gameState = "playing";
+              player.velocityY = CONFIG.JUMP_VELOCITY;
+              playFlapSound();
+              window.FarcadeSDK?.singlePlayer.actions.hapticFeedback();
+              break;
+            case "playing":
+              player.velocityY = CONFIG.JUMP_VELOCITY;
+              playFlapSound();
+              window.FarcadeSDK?.singlePlayer.actions.hapticFeedback();
+              break;
+            case "gameOver":
+              // Do nothing on game over; wait for reset
+              break;
+          }
+        }
+
+        function reset() {
+          score = 0;
+          player.x = gameWidth / 2;
+          player.y = gameHeight / 2;
+          player.velocityY = 0;
+          player.isVisible = true;
+          player.opacity = 1;
+          player.fadeFrame = 0;
+          obstacles = [createObstacle(true), { ...createObstacle(), x: 450 + CONFIG.OBSTACLE_SPACING }];
+          particles = [];
+          backgroundOffset = 0;
+          obstacleSpeed = CONFIG.INITIAL_SPEED;
+          frameCount = 0;
+          gameState = "ready";
+          updateScoreDisplay();
+        }
+
+        async function init() {
+          createBackgroundCanvas();
+          player = {
+            x: gameWidth / 2,
+            y: gameHeight / 2,
+            radius: 16 * RENDER_SCALE,
+            velocityY: 0,
+            spriteSheet: null,
+            frameWidth: 0,
+            frameHeight: 0,
+            isVisible: true,
+            opacity: 1,
+            fadeFrame: 0,
+          };
+          try {
+            await loadSpriteFromURL(
+              "https://lqy3lriiybxcejon.public.blob.vercel-storage.com/pvSYEy3hqIt9/alien-sprite-8If5DwrMfXagoxQXvOvyMrePCAGhvk"
+            );
+          } catch (error) {
+            console.error("Failed to load sprite sheet:", error);
+          }
+          updateScoreDisplay();
+          reset();
+          if (window.FarcadeSDK) {
+            window.FarcadeSDK.singlePlayer.actions.ready({ state: "ready" });
+          }
+          gameLoop();
+        }
+
+        canvas.addEventListener("mousedown", handleInput);
+        canvas.addEventListener("touchstart", handleInput);
+
+        init();
+      })();
     </script>
   </body>
 </html>
