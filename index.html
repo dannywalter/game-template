@@ -47,6 +47,7 @@
   <body>
     <div class="hud">
       <div class="hud-score">SCORE: <span id="score">0</span></div>
+      <!-- High score display removed -->
     </div>
     <canvas id="gameCanvas" width="400" height="800"></canvas>
     <audio id="backgroundMusic" loop>
@@ -119,9 +120,9 @@
           JUMP_VELOCITY: -9,
           OBSTACLE_WIDTH: 50,
           OBSTACLE_SPACING: 300,
-          MIN_GAP_HEIGHT: 150,
-          INITIAL_GAP: 300, // initial gap height
-          INITIAL_SPEED: 2.5, // updated initial speed
+          MIN_GAP_HEIGHT: 100,
+          INITIAL_GAP_HEIGHT: 200,
+          INITIAL_SPEED: 2,
           GRID_SIZE: 50,
           ANIMATION_SPEED: 0.1,
           NUM_FRAMES: 6,
@@ -135,6 +136,7 @@
 
         let gameState = "ready";
         let score = 0;
+        // Removed highScore variable
         let obstacleSpeed = CONFIG.INITIAL_SPEED;
         let backgroundOffset = 0;
         let frameCount = 0;
@@ -293,23 +295,19 @@
 
         function createObstacle(isFirst = false) {
           let gapY;
-          let minGapY, maxGapY;
-          // Adjust gap position range based on score
-          if (score <= 10) {
-            [minGapY, maxGapY] = [300, 500];
-          } else if (score <= 25) {
-            [minGapY, maxGapY] = [250, 550];
-          } else if (score <= 50) {
-            [minGapY, maxGapY] = [200, 600];
-          } else if (score <= 100) {
-            [minGapY, maxGapY] = [150, 650];
+          if (isFirst) {
+            gapY = gameHeight / 2;
           } else {
-            [minGapY, maxGapY] = [150, 650];
+            let minGapY, maxGapY;
+            if (score <= 5) [minGapY, maxGapY] = [300, 500];
+            else if (score <= 10) [minGapY, maxGapY] = [250, 550];
+            else [minGapY, maxGapY] = [150, gameHeight - 150];
+            gapY = Math.random() * (maxGapY - minGapY) + minGapY;
           }
-          gapY = Math.random() * (maxGapY - minGapY) + minGapY;
-
-          // Reduce gap height by 2 per score, with a minimum of MIN_GAP_HEIGHT
-          const gapHeight = Math.max(CONFIG.INITIAL_GAP - score * 2, CONFIG.MIN_GAP_HEIGHT);
+          const MIN_GAP_HEIGHT = 150;
+          const initialGap = 300;
+          const reductionFactor = 3;
+          const gapHeight = Math.max(initialGap - score * reductionFactor, MIN_GAP_HEIGHT);
           return {
             x: isFirst ? 450 : gameWidth,
             gapY,
@@ -359,7 +357,7 @@
                 player.x - offsetX,
                 player.y - offsetY,
                 player.frameWidth * RENDER_SCALE,
-                player.frameHeight * RENDER_SCALE
+                player.frameHeight * RENDER_SCALE,
               );
               ctx.globalCompositeOperation = "source-over";
             } else {
@@ -377,7 +375,7 @@
                 player.x - offsetX,
                 player.y - offsetY,
                 player.frameWidth * RENDER_SCALE,
-                player.frameHeight * RENDER_SCALE
+                player.frameHeight * RENDER_SCALE,
               );
               ctx.restore();
               ctx.drawImage(
@@ -389,7 +387,7 @@
                 player.x - offsetX,
                 player.y - offsetY,
                 player.frameWidth * RENDER_SCALE,
-                player.frameHeight * RENDER_SCALE
+                player.frameHeight * RENDER_SCALE,
               );
             }
           } else {
@@ -415,8 +413,7 @@
               if (!obstacle.passed && player.x > obstacle.x + obstacle.width) {
                 score++;
                 obstacle.passed = true;
-                // Increase speed by 0.05 per score (starting from 2.5)
-                obstacleSpeed = CONFIG.INITIAL_SPEED + score * 0.05;
+                obstacleSpeed = CONFIG.INITIAL_SPEED + score * 0.1;
                 updateScoreDisplay();
                 playScoreSound();
               }
@@ -472,7 +469,7 @@
               obstacle.x,
               obstacle.gapY + obstacle.gapHeight / 2,
               obstacle.width,
-              gameHeight - (obstacle.gapY + obstacle.gapHeight / 2)
+              gameHeight - (obstacle.gapY + obstacle.gapHeight / 2),
             );
             ctx.strokeStyle = COLORS.OBSTACLE_STROKE;
             ctx.lineWidth = 2;
@@ -483,7 +480,7 @@
               obstacle.x,
               obstacle.gapY + obstacle.gapHeight / 2,
               obstacle.width,
-              gameHeight - (obstacle.gapY + obstacle.gapHeight / 2)
+              gameHeight - (obstacle.gapY + obstacle.gapHeight / 2),
             );
             ctx.shadowBlur = 0;
           });
@@ -520,6 +517,7 @@
         function gameOver() {
           createExplosionParticles(player.x, player.y);
           playExplosionSound();
+          // High score update logic removed
           gameState = "gameOver";
           player.fadeFrame = CONFIG.FADE_DURATION;
           player.opacity = 1;
@@ -581,13 +579,14 @@
           };
           try {
             await loadSpriteFromURL(
-              "https://lqy3lriiybxcejon.public.blob.vercel-storage.com/pvSYEy3hqIt9/alien-sprite-8If5DwrMfXagoxQXvOvyMrePCAGhvk"
+              "https://lqy3lriiybxcejon.public.blob.vercel-storage.com/pvSYEy3hqIt9/alien-sprite-8If5DwrMfXagoxQXvOvyMrePCAGhvk",
             );
           } catch (error) {
             console.error("Failed to load sprite sheet:", error);
           }
           updateScoreDisplay();
           reset();
+          // Dispatch ready event to Farcade SDK
           if (window.FarcadeSDK) {
             window.FarcadeSDK.singlePlayer.actions.ready({ state: "ready" });
           }
@@ -602,3 +601,4 @@
     </script>
   </body>
 </html>
+
