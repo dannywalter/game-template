@@ -1,597 +1,869 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Modern Neon Pong</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>WARPONG</title>
     <!-- Farcade SDK -->
     <script src="https://unpkg.com/@farcade/game-sdk@latest/dist/index.min.js"></script>
-    <!-- Tone.js for audio effects -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.39/Tone.min.js"></script>
+    <!-- Tone.js Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
     <style>
-      body {
+      :root {
+        --neon-pink: #ff00ff;
+        --neon-blue: #00ffff;
+        --neon-purple: #9900ff;
+        --background: #1a1a1a;
+      }
+      * {
         margin: 0;
         padding: 0;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        min-height: 100vh;
-        background: #000;
-        font-family: Arial, sans-serif;
+        box-sizing: border-box;
       }
-
-      .game-container {
-        position: relative;
-        width: 100%;
-        max-width: 400px;
-        padding-top: 160%;
-        background: #000;
+      body {
+        background-color: var(--background);
+        font-family: "Arial", sans-serif;
         overflow: hidden;
-        border-radius: 10px;
+        touch-action: none;
       }
-
-      #gameCanvas {
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: #000;
-        border-radius: 10px;
-      }
-
-      #ui {
-        position: absolute;
-        top: 20px;
-        width: 100%;
-        text-align: center;
-        color: #ff0;
-        font-size: 24px;
-        text-shadow: 0 0 10px #ff0;
-        z-index: 2;
-      }
-
-      .screen {
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        background: rgba(0, 0, 0, 0.9);
-        color: #ff0;
-        text-align: center;
-        padding: 20px;
-        width: 80%;
-        border-radius: 10px;
-        z-index: 3;
-        border: 2px solid #ff0;
-        text-shadow: 0 0 10px #ff0;
-        box-shadow: 0 0 20px rgba(255, 255, 0, 0.5);
-      }
-
-      .touch-controls {
-        position: absolute;
-        bottom: 40px;
-        width: 100%;
-        display: none;
+      .game-container {
+        width: 100vw;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start; /* Canvas aligned left */
         justify-content: center;
-        gap: 40px;
-        z-index: 2;
       }
-
-      .touch-btn {
-        width: 60px;
-        height: 60px;
-        background: rgba(255, 255, 0, 0.2);
-        border: 2px solid #ff0;
-        border-radius: 50%;
-        box-shadow: 0 0 10px #ff0;
+      .game-area {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        justify-content: flex-start;
+        width: 100%;
       }
-
-      @media (max-width: 768px) {
-        .touch-controls {
-          display: flex;
-        }
+      canvas {
+        border: 2px solid var(--neon-blue);
+        box-shadow: 0 0 10px var(--neon-blue);
+        touch-action: none;
+        max-height: 100vh;
+        width: auto;
+        height: auto;
+        margin: 0 10px 0 10px;
+      }
+      .paddle-control-label {
+        /* This label fills the remaining space to the right */
+        width: 50px;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        writing-mode: vertical-rl;
+        text-orientation: mixed;
+        font-size: 30px;
+        letter-spacing: 15px;
+        font-weight: bold;
+        color: rgba(0, 255, 255, 0.1);
+        text-shadow: 0 0 20px #00ffff;
+        margin: 30px 0 0 0;
+        cursor: default;
+        user-select: none;
+        -webkit-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+      }
+      .start-instructions {
+        position: absolute;
+        top: 450px;
+        left: 60px;
+        width: 230px;
+        font-size: 0.6em;
+        color: var(--neon-blue);
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        transition: all 0.3s ease;
+        text-shadow: 0 0 5px var(--neon-pink);
+      }
+      .start-instructions ul {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+      }
+      .start-instructions li {
+        margin-bottom: 10px;
+      }
+      .start-button {
+        position: absolute;
+        padding: 15px 30px;
+        font-size: 1.5em;
+        background: transparent;
+        border: 2px solid var(--neon-purple);
+        color: var(--neon-purple);
+        cursor: pointer;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        transition: all 0.3s ease;
+        text-shadow: 0 0 5px var(--neon-purple);
+        box-shadow: 0 0 10px var(--neon-purple);
+        margin: 0 0 0 45px;
+      }
+      .start-button:hover {
+        background: var(--neon-purple);
+        color: var(--background);
       }
     </style>
   </head>
   <body>
     <div class="game-container">
-      <div id="ui">Score: <span id="score">0</span></div>
-      <canvas id="gameCanvas"></canvas>
-      <div id="startScreen" class="screen">
-        <h1>Modern Neon Pong</h1>
-        <p>Click or tap to Start</p>
+      <div class="game-area">
+        <canvas id="gameCanvas"></canvas>
+        <div class="paddle-control-label">CONTROL AREA</div>
       </div>
-      <div id="gameOverScreen" class="screen" style="display: none">
-        <h1>GAME OVER</h1>
-        <p>Score: <span id="finalScore">0</span></p>
-        <p id="highScoreMsg"></p>
-        <p>Play Again via Farcade</p>
+      <div class="start-instructions">
+        <ul>
+          <li>Move mouse or finger to control both paddles</li>
+          <li>Paddles move in opposite directions</li>
+          <li>Control area keeps input clear of view</li>
+          <li>Hit power-ups with the ball to activate effects!</li>
+        </ul>
       </div>
-      <div class="touch-controls">
-        <div id="touchControl" class="touch-btn"></div>
-      </div>
+      <button id="startButton" class="start-button">START GAME</button>
     </div>
 
     <script>
-      // --- Global Setup ---
-      const canvas = document.getElementById('gameCanvas');
-      const ctx = canvas.getContext('2d');
-      const startScreen = document.getElementById('startScreen');
-      const gameOverScreen = document.getElementById('gameOverScreen');
-      const scoreDisplay = document.getElementById('score');
-      const finalScoreDisplay = document.getElementById('finalScore');
-      const highScoreMsg = document.getElementById('highScoreMsg');
+      // Helper: generate a random hex color
+      function getRandomColor() {
+        return (
+          "#" +
+          Math.floor(Math.random() * 16777215)
+            .toString(16)
+            .padStart(6, "0")
+        );
+      }
 
-      // Set internal resolution
-      canvas.width = 500;
-      canvas.height = 800;
+      // Global calibration values for mouse mapping
+      let mouseScale = 1.35;
+      let mouseOffset = -35;
 
-      let gameState = 'start';
-      let score = 0;
-      let highScore = localStorage.getItem('pongHighScore') || 0;
-      let audioMuted = false;
-      let countdown = 3; // seconds before serve
-      let countdownInterval;
+      // Global flag for mute control (default false)
+      window.soundMuted = false;
 
-      // Arrays for power-ups and score animations
-      let powerUps = [];
-      let activePowerUps = {
-        slow: { active: false, expires: 0 },
-        sticky: { active: false, expires: 0 },
-        long: { active: false, expires: 0 }
+      // Global game colors – these are used for drawing the game
+      let gameColors = {
+        background: "#1a1a1a",
+        paddle: "#ff00ff",
+        ball: "#00ffff",
+        centerLine: "#00ffff",
+        score: "#00ffff",
       };
-      let scoreAnimations = [];
 
-      // --- Audio Setup using Tone.js ---
-      const synth = new Tone.Synth().toDestination();
-      function playSound(type) {
-        if (audioMuted) return;
-        let now = Tone.now();
-        if (type === 'paddle') {
-          synth.triggerAttackRelease("C4", "8n", now);
-        } else if (type === 'wall') {
-          synth.triggerAttackRelease("G3", "8n", now);
-        } else if (type === 'score') {
-          synth.triggerAttackRelease("E4", "8n", now);
+      // Sound Manager with mute check
+      class SoundManager {
+        constructor() {
+          this.synth = new Tone.Synth({
+            oscillator: { type: "square" },
+            envelope: { attack: 0.01, decay: 0.2, sustain: 0.2, release: 0.2 },
+          }).toDestination();
+          this.scoreEffect = new Tone.Synth({
+            oscillator: { type: "triangle" },
+            envelope: { attack: 0.005, decay: 0.1, sustain: 0.3, release: 0.4 },
+          })
+            .connect(new Tone.Filter({ frequency: 1000, type: "lowpass" }))
+            .toDestination();
+          this.initialized = false;
+        }
+        async init() {
+          if (!this.initialized) {
+            await Tone.start();
+            this.initialized = true;
+          }
+        }
+        playPaddleHit() {
+          if (window.soundMuted) return;
+          this.synth.triggerAttackRelease("C5", "32n");
+        }
+        playWallHit() {
+          if (window.soundMuted) return;
+          this.synth.triggerAttackRelease("G4", "32n");
+        }
+        playScore() {
+          if (window.soundMuted) return;
+          this.scoreEffect.triggerAttackRelease("E6", "8n");
+        }
+        playGameOver() {
+          if (window.soundMuted) return;
+          const now = Tone.now();
+          this.scoreEffect.triggerAttackRelease("A4", "8n", now);
+          this.scoreEffect.triggerAttackRelease("F4", "8n", now + 0.1);
+          this.scoreEffect.triggerAttackRelease("D4", "8n", now + 0.2);
+          this.scoreEffect.triggerAttackRelease("A3", "4n", now + 0.3);
+        }
+        playPowerUp() {
+          if (window.soundMuted) return;
+          const now = Tone.now();
+          this.synth.triggerAttackRelease("C6", "16n", now);
+          this.synth.triggerAttackRelease("E6", "16n", now + 0.05);
+          this.synth.triggerAttackRelease("G6", "16n", now + 0.1);
         }
       }
+      const soundManager = new SoundManager();
 
-      // Mute handler
-      function setMuted(isMuted) {
-        audioMuted = isMuted;
-        console.log("Audio muted:", audioMuted);
-      }
-
-      // --- Game Object Classes ---
-
-      // Paddle class – used for both left and right paddles.
-      class Paddle {
-        constructor(x, y, width, height) {
+      // Ball class
+      class Ball {
+        constructor(x, y, vx, vy) {
           this.x = x;
           this.y = y;
-          this.width = width;
-          this.height = height;
-          this.baseHeight = height;
-        }
-        draw() {
-          ctx.fillStyle = '#ff0';
-          ctx.shadowBlur = 20;
-          ctx.shadowColor = '#ff0';
-          ctx.fillRect(this.x, this.y, this.width, this.height);
-          ctx.shadowBlur = 0;
-        }
-        setLong(active) {
-          this.height = active ? this.baseHeight * 2 : this.baseHeight;
-        }
-      }
-
-      // Ball class – controls movement, collision, and (if sticky power-up is active) stuck behavior.
-      class Ball {
-        constructor() {
+          this.vx = vx;
+          this.vy = vy;
           this.radius = 8;
-          this.reset();
-          this.stuck = false;
-          this.stuckTo = null; // "left" or "right"
-        }
-        reset() {
-          this.x = canvas.width / 2;
-          this.y = canvas.height / 2;
-          this.speed = 4;
-          // Initial serve always goes left with a slight downward angle.
-          this.vx = -this.speed;
-          this.vy = this.speed * 0.3;
-          this.stuck = false;
-          this.stuckTo = null;
+          this.color = gameColors.ball;
         }
         update() {
-          if (!this.stuck) {
-            this.x += this.vx;
-            this.y += this.vy;
-          }
-          // Bounce off top/bottom walls.
-          if (this.y - this.radius < 0) {
-            this.y = this.radius;
-            this.vy = -this.vy;
-            playSound('wall');
-          } else if (this.y + this.radius > canvas.height) {
-            this.y = canvas.height - this.radius;
-            this.vy = -this.vy;
-            playSound('wall');
-          }
-          // Gradually increase speed.
-          this.speed *= 1.0005;
-          let angle = Math.atan2(this.vy, this.vx);
-          this.vx = this.speed * Math.cos(angle);
-          this.vy = this.speed * Math.sin(angle);
+          this.x += this.vx;
+          this.y += this.vy;
         }
-        draw() {
-          ctx.fillStyle = '#ff0';
-          ctx.shadowBlur = 20;
-          ctx.shadowColor = '#ff0';
+        draw(ctx) {
           ctx.beginPath();
           ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+          ctx.fillStyle = this.color;
           ctx.fill();
+        }
+      }
+
+      // PowerUp class using Emoji icons and new types
+      class PowerUp {
+        constructor(x, y, type) {
+          this.x = x;
+          this.y = y;
+          this.type = type;
+          this.age = 0;
+          this.active = true;
+          if (type === "slowdown") {
+            this.icon = "🐢";
+          } else if (type === "sticky") {
+            this.icon = "🧲"; // Magnet icon for Electro-Magnet
+          } else if (type === "long") {
+            this.icon = "📏";
+          } else if (type === "warp") {
+            this.icon = null;
+            this.image = new Image();
+            this.image.src =
+              "https://lqy3lriiybxcejon.public.blob.vercel-storage.com/ymubWqYejGe9/warp-z6MU76cwz8EpM2xRSvZbsXZIAS3eKy.png?zpOd";
+          } else {
+            this.icon = "❓";
+          }
+        }
+        update() {
+          this.age++;
+          if (this.age > 600) {
+            this.active = false;
+          }
+        }
+        draw(ctx) {
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          if (this.type === "warp") {
+            // Draw the warp image at full 64x64px with rotation and pulsing
+            ctx.save();
+            ctx.translate(this.x, this.y);
+            let angle = -0.01 * this.age; // slow counter-clockwise rotation
+            ctx.rotate(angle);
+            let scaleFactor = 1 + 0.1 * Math.sin(this.age * 0.1); // pulsing effect
+            ctx.scale(scaleFactor, scaleFactor);
+            ctx.drawImage(this.image, -32, -32, 64, 64);
+            ctx.restore();
+          } else {
+            ctx.font = "30px Arial";
+            ctx.fillText(this.icon, this.x, this.y);
+          }
+        }
+      }
+
+      // Animation class for central power-up announcement text (50px)
+      class Animation {
+        constructor(x, y, text, color) {
+          this.x = x;
+          this.y = y;
+          this.text = text;
+          this.color = color;
+          this.age = 0;
+          this.duration = 60;
+          this.done = false;
+        }
+        update() {
+          this.age++;
+          if (this.age >= this.duration) {
+            this.done = true;
+          }
+          return !this.done;
+        }
+        draw(ctx) {
+          const alpha = 1 - this.age / this.duration;
+          ctx.font = "bold 50px Arial";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillStyle = `rgba(${this.color.r}, ${this.color.g}, ${this.color.b}, ${alpha})`;
+          ctx.shadowColor = "rgba(0,255,255,0.7)";
+          ctx.shadowBlur = 20;
+          ctx.fillText(this.text, this.x, this.y - this.age / 3);
           ctx.shadowBlur = 0;
         }
       }
 
-      // PowerUp class – spawns power-ups that disappear after 5 seconds.
-      class PowerUp {
-        constructor(type, x, y) {
-          this.type = type; // 'slow', 'sticky', or 'long'
+      // HitAnimation class for paddle hit feedback (ripple effect in neon blue)
+      class HitAnimation {
+        constructor(x, y) {
           this.x = x;
           this.y = y;
-          this.size = 20;
-          this.spawnTime = Date.now();
+          this.age = 0;
+          this.duration = 30;
+        }
+        update() {
+          this.age++;
+          return this.age < this.duration;
+        }
+        draw(ctx) {
+          const progress = this.age / this.duration;
+          const maxRadius = 30;
+          const currentRadius = progress * maxRadius;
+          const alpha = 1 - progress;
+          ctx.beginPath();
+          ctx.arc(this.x, this.y, currentRadius, 0, Math.PI * 2);
+          ctx.strokeStyle = "rgba(0,255,255," + alpha + ")";
+          ctx.lineWidth = 2;
+          ctx.stroke();
+        }
+      }
+
+      // Countdown Animation: "Ready?" for 1 sec, then "Start!" for 0.5 sec
+      class CountdownAnimation {
+        constructor(canvas, ctx) {
+          this.canvas = canvas;
+          this.ctx = ctx;
+          this.age = 0;
+          this.readyDuration = 60;
+          this.startDuration = 30;
+          this.totalDuration = this.readyDuration + this.startDuration;
+        }
+        update() {
+          this.age++;
+          return this.age < this.totalDuration;
         }
         draw() {
-          ctx.font = "20px Arial";
-          if (this.type === 'slow') {
-            ctx.fillText("🐢", this.x, this.y);
-          } else if (this.type === 'sticky') {
-            ctx.fillText("🍯", this.x, this.y);
-          } else if (this.type === 'long') {
-            ctx.fillText("📏", this.x, this.y);
-          }
-        }
-        isExpired() {
-          return (Date.now() - this.spawnTime) > 5000;
-        }
-      }
-
-      // --- Initialize Game Objects ---
-      const paddleWidth = 10;
-      const paddleHeight = 80;
-      let leftPaddle = new Paddle(20, canvas.height / 2 - paddleHeight / 2, paddleWidth, paddleHeight);
-      let rightPaddle = new Paddle(canvas.width - 20 - paddleWidth, canvas.height / 2 - paddleHeight / 2, paddleWidth, paddleHeight);
-      let ball = new Ball();
-
-      // --- Input Handling ---
-      // Mouse/touch for controlling left paddle.
-      function updatePaddlePosition(clientY) {
-        // Convert clientY to canvas coordinate
-        const rect = canvas.getBoundingClientRect();
-        let y = ((clientY - rect.top) / rect.height) * canvas.height;
-        // Clamp the paddle within canvas bounds.
-        y = Math.max(0, Math.min(y - leftPaddle.height / 2, canvas.height - leftPaddle.height));
-        leftPaddle.y = y;
-        // Right paddle mirrors the left paddle (flipped vertically).
-        rightPaddle.y = canvas.height - leftPaddle.y - leftPaddle.height;
-      }
-
-      canvas.addEventListener('mousemove', (e) => {
-        if (gameState === 'playing') updatePaddlePosition(e.clientY);
-      });
-
-      canvas.addEventListener('touchmove', (e) => {
-        if (gameState === 'playing' && e.touches[0]) {
-          updatePaddlePosition(e.touches[0].clientY);
-        }
-      });
-
-      // Click/tap to release ball if sticky power-up is active.
-      canvas.addEventListener('click', (e) => {
-        if (gameState === 'playing' && ball.stuck) {
-          // Release ball with a predictable angle.
-          ball.stuck = false;
-          ball.vx = ball.stuckTo === 'left' ? ball.speed : -ball.speed;
-          ball.vy = ball.speed * 0.3;
-          playSound('paddle');
-        }
-      });
-
-      // --- Game Mechanics ---
-
-      // Handle paddle-ball collisions.
-      function handlePaddleCollision(paddle, side) {
-        // 'side' is either "left" or "right"
-        // Check vertical overlap.
-        if (ball.y > paddle.y && ball.y < paddle.y + paddle.height) {
-          // Adjust ball's angle based on where it hits the paddle.
-          let relativeIntersectY = (paddle.y + paddle.height / 2) - ball.y;
-          let normalizedRelativeIntersectionY = relativeIntersectY / (paddle.height / 2);
-          let bounceAngle = normalizedRelativeIntersectionY * (Math.PI / 4); // max 45° angle
-
-          // Set ball velocity based on side.
-          let direction = side === 'left' ? 1 : -1;
-          ball.speed = Math.max(ball.speed, 4); // ensure a minimum speed
-          ball.vx = direction * ball.speed * Math.cos(bounceAngle);
-          ball.vy = ball.speed * -Math.sin(bounceAngle);
-          playSound('paddle');
-
-          // If sticky power-up is active, make ball stick.
-          if (activePowerUps.sticky.active) {
-            ball.stuck = true;
-            ball.stuckTo = side;
-            // Position ball at paddle edge.
-            ball.x = side === 'left' ? paddle.x + paddle.width + ball.radius : paddle.x - ball.radius;
-          }
-
-          // Increase score and create a score animation.
-          score++;
-          scoreDisplay.textContent = score;
-          scoreAnimations.push({
-            x: ball.x,
-            y: ball.y,
-            text: "+1",
-            alpha: 1,
-            timer: 60
-          });
-          playSound('score');
-        }
-      }
-
-      // --- Power-Up Mechanics ---
-      // Randomly spawn a power-up every few seconds.
-      function spawnPowerUp() {
-        const types = ['slow', 'sticky', 'long'];
-        const type = types[Math.floor(Math.random() * types.length)];
-        // Spawn at a random position in the central region.
-        const x = Math.random() * (canvas.width - 100) + 50;
-        const y = Math.random() * (canvas.height - 200) + 100;
-        powerUps.push(new PowerUp(type, x, y));
-      }
-
-      // Activate a power-up effect when collected.
-      function activatePowerUp(type) {
-        const now = Date.now();
-        if (type === 'slow') {
-          activePowerUps.slow.active = true;
-          activePowerUps.slow.expires = now + 5000;
-          // Reduce ball speed by 30%
-          ball.speed *= 0.7;
-        } else if (type === 'sticky') {
-          activePowerUps.sticky.active = true;
-          activePowerUps.sticky.expires = now + 5000;
-        } else if (type === 'long') {
-          activePowerUps.long.active = true;
-          activePowerUps.long.expires = now + 5000;
-          leftPaddle.setLong(true);
-          rightPaddle.setLong(true);
-        }
-      }
-
-      // Check if ball collides with any power-up.
-      function checkPowerUpCollision() {
-        for (let i = powerUps.length - 1; i >= 0; i--) {
-          let pu = powerUps[i];
-          let dx = ball.x - pu.x;
-          let dy = ball.y - pu.y;
-          let dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist < ball.radius + pu.size / 2) {
-            activatePowerUp(pu.type);
-            powerUps.splice(i, 1);
-          }
-        }
-      }
-
-      // Update active power-up effects.
-      function updatePowerUps() {
-        const now = Date.now();
-        if (activePowerUps.slow.active && now > activePowerUps.slow.expires) {
-          activePowerUps.slow.active = false;
-          // Restore ball speed if needed (reset ball speed based on current angle)
-          let angle = Math.atan2(ball.vy, ball.vx);
-          ball.speed = Math.max(ball.speed, 4);
-          ball.vx = Math.abs(ball.vx) * Math.cos(angle);
-          ball.vy = ball.speed * Math.sin(angle);
-        }
-        if (activePowerUps.sticky.active && now > activePowerUps.sticky.expires) {
-          activePowerUps.sticky.active = false;
-        }
-        if (activePowerUps.long.active && now > activePowerUps.long.expires) {
-          activePowerUps.long.active = false;
-          leftPaddle.setLong(false);
-          rightPaddle.setLong(false);
-        }
-      }
-
-      // --- Score Animations ---
-      function updateScoreAnimations() {
-        for (let i = scoreAnimations.length - 1; i >= 0; i--) {
-          let anim = scoreAnimations[i];
-          anim.timer--;
-          anim.alpha -= 0.02;
-          if (anim.timer <= 0 || anim.alpha <= 0) {
-            scoreAnimations.splice(i, 1);
-          }
-        }
-      }
-      function drawScoreAnimations() {
-        scoreAnimations.forEach(anim => {
-          ctx.save();
-          ctx.globalAlpha = anim.alpha;
-          ctx.fillStyle = '#ff0';
-          ctx.font = "20px Arial";
-          ctx.fillText(anim.text, anim.x, anim.y);
-          ctx.restore();
-        });
-      }
-
-      // --- Countdown Sequence ---
-      function startCountdown(callback) {
-        countdown = 3;
-        startScreen.innerHTML = `<h1>Modern Neon Pong</h1><p>Ready? ${countdown}</p>`;
-        countdownInterval = setInterval(() => {
-          countdown--;
-          if (countdown > 0) {
-            startScreen.innerHTML = `<h1>Modern Neon Pong</h1><p>Ready? ${countdown}</p>`;
+          let text = "";
+          let segmentAge, segmentDuration;
+          if (this.age < this.readyDuration) {
+            text = "Ready?";
+            segmentAge = this.age;
+            segmentDuration = this.readyDuration;
           } else {
-            clearInterval(countdownInterval);
-            startScreen.style.display = 'none';
-            callback();
+            text = "Start!";
+            segmentAge = this.age - this.readyDuration;
+            segmentDuration = this.startDuration;
           }
-        }, 1000);
-      }
-
-      // --- Game Over ---
-      function gameOver() {
-        gameState = 'gameover';
-        gameOverScreen.style.display = 'block';
-        finalScoreDisplay.textContent = score;
-        // Update high score if needed.
-        if (score > highScore) {
-          highScore = score;
-          localStorage.setItem('pongHighScore', highScore);
-          highScoreMsg.textContent = "New High Score!";
-        } else {
-          highScoreMsg.textContent = `High Score: ${highScore}`;
-        }
-        // Report game over via Farcade SDK.
-        window.FarcadeSDK.singlePlayer.actions.gameOver({ score: score });
-      }
-
-      // --- Game Loop ---
-      function update() {
-        if (gameState !== 'playing') return;
-
-        // Update ball if not stuck.
-        ball.update();
-        // Check for paddle collisions.
-        // Left paddle collision.
-        if (ball.x - ball.radius < leftPaddle.x + leftPaddle.width) {
-          handlePaddleCollision(leftPaddle, 'left');
-        }
-        // Right paddle collision.
-        if (ball.x + ball.radius > rightPaddle.x) {
-          handlePaddleCollision(rightPaddle, 'right');
-        }
-        // Check for power-up collisions.
-        checkPowerUpCollision();
-
-        // Update power-up effects.
-        updatePowerUps();
-
-        // Update score animations.
-        updateScoreAnimations();
-
-        // Spawn power-ups periodically.
-        if (Math.random() < 0.005 && powerUps.length < 2) {
-          spawnPowerUp();
-        }
-
-        // Check if ball is lost.
-        if (ball.x + ball.radius < 0 || ball.x - ball.radius > canvas.width) {
-          gameOver();
-          return;
+          const alpha = 1 - segmentAge / segmentDuration;
+          this.ctx.save();
+          this.ctx.translate(this.canvas.width / 2, this.canvas.height / 2);
+          this.ctx.font = "bold 72px Arial";
+          this.ctx.textAlign = "center";
+          this.ctx.textBaseline = "middle";
+          this.ctx.fillStyle = `rgba(0,255,255,${alpha})`;
+          this.ctx.fillText(text, 0, 0);
+          this.ctx.restore();
         }
       }
 
-      function draw() {
-        // Clear canvas.
-        ctx.fillStyle = '#000';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-        // Optional: Change background if a power-up is active.
-        if (activePowerUps.slow.active) {
-          ctx.fillStyle = "rgba(0, 100, 0, 0.1)";
-          ctx.fillRect(0, 0, canvas.width, canvas.height);
+      // Main Pong Game class
+      class PongGame {
+        constructor() {
+          this.canvas = document.getElementById("gameCanvas");
+          this.ctx = this.canvas.getContext("2d");
+          this.startButton = document.getElementById("startButton");
+          this.activeAnimations = [];
+          this.defaultPaddleHeight = 80;
+          this.paddleHeight = this.defaultPaddleHeight;
+          this.paddleWidth = 10;
+          this.baseSpeed = 5;
+          this.speedMultiplier = 1;
+          this.score = 0;
+          this.timeAlive = 0;
+          this.powerUps = [];
+          this.nextPowerUpSpawn = 300;
+          this.powerUpSpawnInterval = 300;
+          this.slowdownActive = false;
+          this.slowdownEndTime = 0;
+          this.stickyActive = false;
+          this.stickyEndTime = 0;
+          this.stickyBall = null;
+          this.longPaddleActive = false;
+          this.longPaddleEndTime = 0;
+          this.resizeCanvas();
+          this.reset();
+          this.setupControls();
+          this.setupStartButton();
+          this.countdown = null;
+          // Draw initial state immediately on load
+          this.draw();
+          window.addEventListener("resize", () => {
+            this.resizeCanvas();
+            this.draw();
+          });
         }
-        // Draw center divider.
-        ctx.strokeStyle = "#ff0";
-        ctx.setLineDash([10, 10]);
-        ctx.beginPath();
-        ctx.moveTo(canvas.width / 2, 0);
-        ctx.lineTo(canvas.width / 2, canvas.height);
-        ctx.stroke();
-        ctx.setLineDash([]);
 
-        // Draw paddles.
-        leftPaddle.draw();
-        rightPaddle.draw();
+        resizeCanvas() {
+          this.canvas.width = 400;
+          this.canvas.height = 800;
+        }
 
-        // Draw ball.
-        ball.draw();
+        reset() {
+          this.leftPaddle = { y: this.canvas.height / 2 - this.paddleHeight / 2 };
+          this.rightPaddle = { y: this.canvas.height / 2 - this.paddleHeight / 2 };
+          this.gameStarted = false;
+          this.score = 0;
+          this.timeAlive = 0;
+          this.speedMultiplier = 1;
+          this.ball = this.createNewBall(true);
+          this.powerUps = [];
+          this.slowdownActive = false;
+          this.slowdownEndTime = 0;
+          this.stickyActive = false;
+          this.stickyEndTime = 0;
+          this.stickyBall = null;
+          this.longPaddleActive = false;
+          this.paddleHeight = this.defaultPaddleHeight;
+        }
 
-        // Draw active power-ups (as icons).
-        powerUps.forEach(pu => pu.draw());
+        createNewBall(isInitial = false) {
+          let angle, direction;
+          if (isInitial) {
+            direction = -1;
+            angle = (Math.random() * 0.1 - 0.05) * Math.PI;
+          } else {
+            direction = Math.random() > 0.5 ? 1 : -1;
+            angle = (Math.random() * 0.5 - 0.25) * Math.PI;
+          }
+          const speed = this.baseSpeed * this.speedMultiplier;
+          return new Ball(
+            this.canvas.width / 2,
+            this.canvas.height / 2,
+            direction * speed * Math.cos(angle),
+            speed * Math.sin(angle),
+          );
+        }
 
-        // Draw score animations.
-        drawScoreAnimations();
+        setupControls() {
+          const handleMove = (rawY, rectTop) => {
+            // Adjust rawY using calibration values:
+            const adjustedY = rawY * mouseScale + mouseOffset;
+            const clampedY = Math.max(0, Math.min(adjustedY, this.canvas.height));
+            this.leftPaddle.y = Math.max(
+              0,
+              Math.min(this.canvas.height - this.paddleHeight, clampedY - this.paddleHeight / 2),
+            );
+            this.rightPaddle.y = this.canvas.height - this.leftPaddle.y - this.paddleHeight;
+            if (!this.gameStarted) this.draw();
+          };
+
+          // Touch events on window so empty space is active
+          window.addEventListener(
+            "touchmove",
+            (e) => {
+              e.preventDefault();
+              const touch = e.touches[0];
+              const rect = this.canvas.getBoundingClientRect();
+              const rawY = touch.clientY - rect.top;
+              handleMove(rawY, rect.top);
+            },
+            { passive: false },
+          );
+
+          // Mouse events on window
+          window.addEventListener("mousemove", (e) => {
+            const rect = this.canvas.getBoundingClientRect();
+            const rawY = e.clientY - rect.top;
+            handleMove(rawY, rect.top);
+          });
+        }
+
+        setupStartButton() {
+          this.startButton.addEventListener("click", async () => {
+            await soundManager.init();
+            // Hide the start button and the instructions when game starts
+            this.startButton.style.display = "none";
+            const instructions = document.querySelector(".start-instructions");
+            if (instructions) {
+              instructions.style.display = "none";
+            }
+            this.countdown = new CountdownAnimation(this.canvas, this.ctx);
+            this.startCountdown();
+          });
+        }
+
+        startCountdown() {
+          this.countdown.update();
+          this.draw();
+          if (this.countdown.age < this.countdown.totalDuration) {
+            requestAnimationFrame(() => this.startCountdown());
+          } else {
+            this.countdown = null;
+            this.gameStarted = true;
+            this.nextPowerUpSpawn = this.timeAlive + this.powerUpSpawnInterval;
+            this.gameLoop();
+          }
+        }
+
+        update() {
+          if (!this.gameStarted) return;
+          this.timeAlive++;
+          if (this.timeAlive >= this.nextPowerUpSpawn) {
+            this.spawnPowerUp();
+            this.nextPowerUpSpawn = this.timeAlive + this.powerUpSpawnInterval;
+          }
+          // When power-up timers expire, simply turn the effect off without an animation
+          if (this.slowdownActive && this.timeAlive >= this.slowdownEndTime) {
+            this.slowdownActive = false;
+            this.speedMultiplier = 1 + this.score / 500;
+          }
+          if (this.stickyActive && this.timeAlive >= this.stickyEndTime) {
+            this.stickyActive = false;
+            if (this.stickyBall) {
+              this.stickyBall = null;
+            }
+          }
+          // (Note: We no longer revert long paddle here immediately)
+          this.powerUps.forEach((powerUp) => powerUp.update());
+          this.powerUps = this.powerUps.filter((powerUp) => powerUp.active);
+          if (!this.stickyBall) {
+            this.ball.update();
+            // Check for collision with top/bottom walls and ensure a minimum vertical speed:
+            if (this.ball.y - this.ball.radius <= 0 || this.ball.y + this.ball.radius >= this.canvas.height) {
+              this.ball.vy = -this.ball.vy;
+              if (Math.abs(this.ball.vy) < 2) {
+                this.ball.vy += this.ball.vy < 0 ? -1 : 1;
+              }
+              soundManager.playWallHit();
+            }
+          } else {
+            this.ball.y = Math.max(this.ball.radius, Math.min(this.ball.y, this.canvas.height - this.ball.radius));
+          }
+          this.checkPaddleCollision();
+          if (this.ball.x - this.ball.radius <= 0 || this.ball.x + this.ball.radius >= this.canvas.width) {
+            this.gameOver();
+            return;
+          }
+          this.checkPowerUpCollisions();
+          this.activeAnimations = this.activeAnimations.filter((anim) => anim.update());
+          if (!this.slowdownActive) {
+            this.speedMultiplier = 1 + this.score / 500;
+          }
+        }
+
+        spawnPowerUp() {
+          const types = ["slowdown", "sticky", "long", "warp"];
+          const type = types[Math.floor(Math.random() * types.length)];
+          const x = Math.random() * (this.canvas.width - 100) + 50;
+          const y = Math.random() * (this.canvas.height - 100) + 50;
+          this.powerUps.push(new PowerUp(x, y, type));
+        }
+
+        checkPowerUpCollisions() {
+          for (let i = 0; i < this.powerUps.length; i++) {
+            const powerUp = this.powerUps[i];
+            const dx = powerUp.x - this.ball.x;
+            const dy = powerUp.y - this.ball.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            if (distance < this.ball.radius + 20) {
+              this.activatePowerUp(powerUp.type);
+              powerUp.active = false;
+              soundManager.playPowerUp();
+              break;
+            }
+          }
+        }
+
+        activatePowerUp(type) {
+          const duration = 300;
+          if (type === "slowdown") {
+            this.slowdownActive = true;
+            this.slowdownEndTime = this.timeAlive + duration;
+            this.speedMultiplier = 0.5;
+          } else if (type === "sticky") {
+            this.stickyActive = true;
+            this.stickyEndTime = this.timeAlive + duration;
+          } else if (type === "long") {
+            this.longPaddleActive = true;
+            this.longPaddleEndTime = this.timeAlive + duration;
+            this.paddleHeight = this.defaultPaddleHeight * 2;
+          } else if (type === "warp") {
+            // Warp powerup: Randomize game colors and award bonus 10 points
+            gameColors.background = getRandomColor();
+            gameColors.paddle = getRandomColor();
+            gameColors.ball = getRandomColor();
+            gameColors.centerLine = getRandomColor();
+            gameColors.score = getRandomColor();
+            this.score += 10;
+            // Also add a +10 announcement near the score (positioned at y = 20)
+            this.activeAnimations.push(new Animation(this.canvas.width / 2, 200, "+10", { r: 255, g: 255, b: 0 }));
+          }
+          // Create a central announcement for the activated power-up using a 50px font
+          let displayText = "";
+          if (type === "slowdown") displayText = "Slowdown!";
+          else if (type === "sticky") displayText = "Electro-Magnet!";
+          else if (type === "long") displayText = "Long Paddle!";
+          else if (type === "warp") displayText = "Warp!";
+          if (displayText !== "") {
+            this.activeAnimations.push(
+              new Animation(
+                this.canvas.width / 2,
+                this.canvas.height / 2,
+                displayText,
+                type === "slowdown"
+                  ? { r: 0, g: 255, b: 0 }
+                  : type === "sticky"
+                    ? { r: 255, g: 165, b: 0 }
+                    : type === "long"
+                      ? { r: 0, g: 255, b: 255 }
+                      : { r: 255, g: 255, b: 0 },
+              ),
+            );
+          }
+        }
+
+        checkPaddleCollision() {
+          // Left Paddle Collision
+          if (
+            this.ball.x - this.ball.radius <= this.paddleWidth &&
+            this.ball.y >= this.leftPaddle.y &&
+            this.ball.y <= this.leftPaddle.y + this.paddleHeight
+          ) {
+            // If long paddle effect has expired, revert before processing the hit
+            if (this.longPaddleActive && this.timeAlive >= this.longPaddleEndTime) {
+              this.longPaddleActive = false;
+              this.paddleHeight = this.defaultPaddleHeight;
+            }
+            if (this.stickyActive) {
+              if (!this.stickyBall) {
+                this.stickyBall = { paddle: "left", offsetY: this.ball.y - this.leftPaddle.y };
+                this.ball.vx = Math.abs(this.ball.vx);
+              }
+            } else {
+              this.handlePaddleHit("left");
+            }
+          }
+          // Right Paddle Collision
+          if (
+            this.ball.x + this.ball.radius >= this.canvas.width - this.paddleWidth &&
+            this.ball.y >= this.rightPaddle.y &&
+            this.ball.y <= this.rightPaddle.y + this.paddleHeight
+          ) {
+            if (this.longPaddleActive && this.timeAlive >= this.longPaddleEndTime) {
+              this.longPaddleActive = false;
+              this.paddleHeight = this.defaultPaddleHeight;
+            }
+            if (this.stickyActive) {
+              if (!this.stickyBall) {
+                this.stickyBall = { paddle: "right", offsetY: this.ball.y - this.rightPaddle.y };
+                this.ball.vx = -Math.abs(this.ball.vx);
+              }
+            } else {
+              this.handlePaddleHit("right");
+            }
+          }
+          // If ball is stuck, update its position and attach release event only once
+          if (this.stickyBall) {
+            if (this.stickyBall.paddle === "left") {
+              this.ball.x = this.paddleWidth + this.ball.radius;
+              this.ball.y = this.leftPaddle.y + this.stickyBall.offsetY;
+            } else {
+              this.ball.x = this.canvas.width - this.paddleWidth - this.ball.radius;
+              this.ball.y = this.rightPaddle.y + this.stickyBall.offsetY;
+            }
+            // Listen on document so that tapping anywhere releases the sticky ball
+            document.addEventListener("click", this.releaseStickyBall.bind(this), { once: true });
+            document.addEventListener("touchstart", this.releaseStickyBall.bind(this), { once: true });
+          }
+        }
+
+        releaseStickyBall() {
+          // Before processing, check for long paddle expiration
+          if (this.longPaddleActive && this.timeAlive >= this.longPaddleEndTime) {
+            this.longPaddleActive = false;
+            this.paddleHeight = this.defaultPaddleHeight;
+          }
+          if (this.stickyBall) {
+            const paddle = this.stickyBall.paddle;
+            let paddleY = paddle === "left" ? this.leftPaddle.y : this.rightPaddle.y;
+            const relativeIntersectY = (this.ball.y - paddleY) / this.paddleHeight;
+            const bounceAngle = ((relativeIntersectY - 0.5) * Math.PI) / 3;
+            const speed = this.baseSpeed * this.speedMultiplier;
+            const direction = paddle === "left" ? 1 : -1;
+            this.ball.vx = direction * speed * Math.cos(bounceAngle);
+            this.ball.vy = speed * Math.sin(bounceAngle);
+            soundManager.playPaddleHit();
+            if (window.FarcadeSDK && window.FarcadeSDK.singlePlayer && window.FarcadeSDK.singlePlayer.actions) {
+              window.FarcadeSDK.singlePlayer.actions.hapticFeedback();
+            }
+            this.score += 1;
+            this.activeAnimations.push(new HitAnimation(this.ball.x, this.ball.y));
+            this.stickyBall = null;
+          }
+        }
+
+        handlePaddleHit(paddle) {
+          // Check for long paddle expiration before processing the hit
+          if (this.longPaddleActive && this.timeAlive >= this.longPaddleEndTime) {
+            this.longPaddleActive = false;
+            this.paddleHeight = this.defaultPaddleHeight;
+          }
+          let paddleY = paddle === "left" ? this.leftPaddle.y : this.rightPaddle.y;
+          const relativeIntersectY = (this.ball.y - paddleY) / this.paddleHeight;
+          const bounceAngle = ((relativeIntersectY - 0.5) * Math.PI) / 3;
+          const speed = this.baseSpeed * this.speedMultiplier;
+          const direction = paddle === "left" ? 1 : -1;
+          this.ball.vx = direction * speed * Math.cos(bounceAngle);
+          this.ball.vy = speed * Math.sin(bounceAngle);
+          soundManager.playPaddleHit();
+          if (window.FarcadeSDK && window.FarcadeSDK.singlePlayer && window.FarcadeSDK.singlePlayer.actions) {
+            window.FarcadeSDK.singlePlayer.actions.hapticFeedback();
+          }
+          this.score += 1;
+          this.activeAnimations.push(new HitAnimation(this.ball.x, this.ball.y));
+        }
+
+        gameOver() {
+          soundManager.playGameOver();
+          if (window.FarcadeSDK && window.FarcadeSDK.singlePlayer && window.FarcadeSDK.singlePlayer.actions) {
+            window.FarcadeSDK.singlePlayer.actions.gameOver({ score: this.score });
+          }
+          // Reset game colors to original defaults
+          gameColors = {
+            background: "#1a1a1a",
+            paddle: "#ff00ff",
+            ball: "#00ffff",
+            centerLine: "#00ffff",
+            score: "#00ffff",
+          };
+          // Clear active animations so power-up messages disappear
+          this.activeAnimations = [];
+          this.gameStarted = false;
+          this.startButton.style.display = "block";
+          // Optionally, show instructions again
+          const instructions = document.querySelector(".start-instructions");
+          if (instructions) {
+            instructions.style.display = "block";
+          }
+          this.reset();
+          this.draw();
+        }
+
+        draw() {
+          this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+          this.ctx.fillStyle = gameColors.background;
+          this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+          // Score
+          this.ctx.font = "bold 24px Arial";
+          this.ctx.fillStyle = gameColors.score;
+          this.ctx.textAlign = "center";
+          this.ctx.fillText(`Score: ${this.score}`, this.canvas.width / 2, 30);
+
+          // Center line
+          this.ctx.setLineDash([5, 15]);
+          this.ctx.beginPath();
+          this.ctx.moveTo(this.canvas.width / 2, 0);
+          this.ctx.lineTo(this.canvas.width / 2, this.canvas.height);
+          this.ctx.strokeStyle = gameColors.centerLine;
+          this.ctx.lineWidth = 2;
+          this.ctx.stroke();
+          this.ctx.setLineDash([]);
+
+          // Paddles
+          this.ctx.shadowColor = "#ff00ff";
+          this.ctx.shadowBlur = 10;
+          this.ctx.fillStyle = gameColors.paddle;
+          this.ctx.fillRect(0, this.leftPaddle.y, this.paddleWidth, this.paddleHeight);
+          this.ctx.fillRect(
+            this.canvas.width - this.paddleWidth,
+            this.rightPaddle.y,
+            this.paddleWidth,
+            this.paddleHeight,
+          );
+
+          // Ball – update ball color based on gameColors.ball
+          this.ball.color = gameColors.ball;
+          this.ctx.shadowColor = "#00ffff";
+          this.ball.draw(this.ctx);
+
+          // Power-ups
+          this.powerUps.forEach((powerUp) => powerUp.draw(this.ctx));
+
+          // Persistent lower power-up indicator text (24px with countdown)
+          if (this.slowdownActive) {
+            this.ctx.font = "bold 24px Arial";
+            this.ctx.fillStyle = "#00ff00";
+            this.ctx.textAlign = "left";
+            let remaining = Math.ceil((this.slowdownEndTime - this.timeAlive) / 60);
+            this.ctx.fillText("SLOWDOWN " + remaining, 10, this.canvas.height - 10);
+          }
+          if (this.stickyActive) {
+            this.ctx.font = "bold 24px Arial";
+            this.ctx.fillStyle = "#ff00ff";
+            this.ctx.textAlign = "right";
+            let remaining = Math.ceil((this.stickyEndTime - this.timeAlive) / 60);
+            this.ctx.fillText("ELECTRO-MAGNET " + remaining, this.canvas.width - 10, this.canvas.height - 10);
+          }
+          if (this.longPaddleActive) {
+            this.ctx.font = "bold 24px Arial";
+            this.ctx.fillStyle = "#00ffff";
+            this.ctx.textAlign = "center";
+            let remaining = Math.ceil((this.longPaddleEndTime - this.timeAlive) / 60);
+            this.ctx.fillText("LONG PADDLE " + remaining, this.canvas.width / 2, this.canvas.height - 10);
+          }
+          this.ctx.shadowBlur = 0;
+
+          // Central power-up announcement animations (using 50px font)
+          this.activeAnimations.forEach((anim) => anim.draw(this.ctx));
+
+          // Countdown overlay
+          if (this.countdown) {
+            this.countdown.draw();
+          }
+        }
+
+        gameLoop() {
+          if (this.gameStarted) {
+            this.update();
+            this.draw();
+            requestAnimationFrame(() => this.gameLoop());
+          }
+        }
       }
 
-      function gameLoop() {
-        update();
-        draw();
-        requestAnimationFrame(gameLoop());
-      }
-
-      // --- Canvas Resize ---
-      function resizeCanvas() {
-        const container = document.querySelector('.game-container');
-        const rect = container.getBoundingClientRect();
-        canvas.style.width = `${rect.width}px`;
-        canvas.style.height = `${rect.height}px`;
-      }
-      window.addEventListener('resize', resizeCanvas);
-      resizeCanvas();
-
-      // --- Game Flow Functions ---
-      function startGame() {
-        gameState = 'playing';
-        // Reset game objects.
-        leftPaddle = new Paddle(20, canvas.height / 2 - paddleHeight / 2, paddleWidth, paddleHeight);
-        rightPaddle = new Paddle(canvas.width - 20 - paddleWidth, canvas.height / 2 - paddleHeight / 2, paddleWidth, paddleHeight);
-        ball.reset();
-        score = 0;
-        scoreDisplay.textContent = score;
-        powerUps = [];
-        scoreAnimations = [];
-        activePowerUps.slow.active = false;
-        activePowerUps.sticky.active = false;
-        activePowerUps.long.active = false;
-        // Signal game start via Farcade SDK.
-        window.FarcadeSDK.singlePlayer.actions.ready();
-      }
-
-      // Start game on click/tap from the start screen.
-      startScreen.addEventListener('click', () => {
-        if (gameState === 'start') {
-          startScreen.style.display = 'block';
-          startCountdown(startGame);
+      // Initialize game and Farcade SDK events when DOM is ready.
+      document.addEventListener("DOMContentLoaded", () => {
+        // Initialize global game colors
+        window.gameColors = {
+          background: "#1a1a1a",
+          paddle: "#ff00ff",
+          ball: "#00ffff",
+          centerLine: "#00ffff",
+          score: "#00ffff",
+        };
+        window.game = new PongGame();
+        if (window.FarcadeSDK && window.FarcadeSDK.singlePlayer && window.FarcadeSDK.singlePlayer.actions) {
+          window.FarcadeSDK.singlePlayer.actions.ready();
+        }
+        if (window.FarcadeSDK) {
+          window.FarcadeSDK.on("play_again", () => {
+            if (window.game) {
+              window.game.reset();
+              window.game.startCountdown();
+            }
+          });
+          window.FarcadeSDK.on("toggle_mute", (data) => {
+            window.soundMuted = data.isMuted;
+          });
         }
       });
-
-      // --- Farcade SDK Event Listeners ---
-      window.FarcadeSDK.on('play_again', () => {
-        // Restart game on Farcade play again event.
-        gameOverScreen.style.display = 'none';
-        gameState = 'playing';
-        startGame();
-      });
-
-      window.FarcadeSDK.on('toggle_mute', (data) => {
-        setMuted(data.isMuted);
-      });
-
-      // --- Start the Game Loop ---
-      function mainLoop() {
-        update();
-        draw();
-        requestAnimationFrame(mainLoop);
-      }
-      mainLoop();
     </script>
   </body>
 </html>
