@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>FarChess - Phase 2</title>
+  <title>FarChess - Phase 2 (Fixed)</title>
   <style>
     /* Basic reset and layout */
     body {
@@ -263,11 +263,10 @@
         if (kingPos) break;
       }
       if (!kingPos) return false;
-      const opponent = (color === "white") ? "black" : "white";
       for (let r = 0; r < 8; r++) {
         for (let c = 0; c < 8; c++) {
           const piece = testBoard[r][c];
-          if (piece && piece.color === opponent) {
+          if (piece && piece.color !== color) {
             const moves = getValidMovesForCheck(r, c, testBoard);
             if (moves.some(m => m.row === kingPos.row && m.col === kingPos.col)) {
               return true;
@@ -286,6 +285,7 @@
       const forward = (piece.color === "white") ? -1 : 1;
       switch(piece.type) {
         case "pawn":
+          // For check detection we consider diagonal moves
           for (let dCol of [-1, 1]) {
             const newRow = row + forward;
             const newCol = col + dCol;
@@ -331,7 +331,26 @@
           });
           break;
         case "queen":
-          moves.push(...getValidMovesForCheck(row, col, testBoard));
+          // Rook-like moves
+          [[-1, 0], [1, 0], [0, -1], [0, 1]].forEach(direction => {
+            let r = row + direction[0], c = col + direction[1];
+            while (isInsideBoard(r, c)) {
+              moves.push({ row: r, col: c });
+              if (testBoard[r][c]) break;
+              r += direction[0];
+              c += direction[1];
+            }
+          });
+          // Bishop-like moves
+          [[-1, -1], [-1, 1], [1, -1], [1, 1]].forEach(direction => {
+            let r = row + direction[0], c = col + direction[1];
+            while (isInsideBoard(r, c)) {
+              moves.push({ row: r, col: c });
+              if (testBoard[r][c]) break;
+              r += direction[0];
+              c += direction[1];
+            }
+          });
           break;
         case "king":
           for (let dr = -1; dr <= 1; dr++) {
@@ -356,7 +375,6 @@
       const forward = (piece.color === "white") ? -1 : 1;
       switch(piece.type) {
         case "pawn":
-          // Forward moves
           if (isInsideBoard(row + forward, col) && !board[row + forward][col]) {
             moves.push({ row: row + forward, col: col });
             const startingRow = (piece.color === "white") ? 6 : 1;
@@ -364,7 +382,6 @@
               moves.push({ row: row + 2 * forward, col: col });
             }
           }
-          // Diagonal captures and en passant
           for (let dCol of [-1, 1]) {
             const newRow = row + forward;
             const newCol = col + dCol;
@@ -425,7 +442,6 @@
           moves.push(...getValidMovesForType("bishop", row, col));
           break;
         case "king":
-          // Normal king moves
           for (let dr = -1; dr <= 1; dr++) {
             for (let dc = -1; dc <= 1; dc++) {
               if (dr === 0 && dc === 0) continue;
@@ -435,9 +451,7 @@
               }
             }
           }
-          // Castling moves (if king and rook haven't moved, path is clear, and king is not in check)
           if (!piece.hasMoved && !isKingInCheck(piece.color)) {
-            // Kingside castling
             if (board[row][7] && board[row][7].type === "rook" && !board[row][7].hasMoved) {
               if (!board[row][5] && !board[row][6] &&
                   !wouldSquareBeAttacked(row, 5, piece.color) &&
@@ -445,7 +459,6 @@
                 moves.push({ row: row, col: 6, castling: "kingside" });
               }
             }
-            // Queenside castling
             if (board[row][0] && board[row][0].type === "rook" && !board[row][0].hasMoved) {
               if (!board[row][1] && !board[row][2] && !board[row][3] &&
                   !wouldSquareBeAttacked(row, 2, piece.color) &&
@@ -456,7 +469,6 @@
           }
           break;
       }
-      // Filter out moves that leave king in check
       moves = moves.filter(move => !moveLeavesKingInCheck(row, col, move));
       return moves;
     }
@@ -473,15 +485,14 @@
 
     // Check if a move would leave the king in check by simulating it
     function moveLeavesKingInCheck(fromRow, fromCol, move) {
-      const boardClone = board.map(row => row.slice());
+      // Deep clone the board to avoid modifying original pieces
+      const boardClone = board.map(row => row.map(piece => piece ? { ...piece } : null));
       const piece = boardClone[fromRow][fromCol];
       boardClone[move.row][move.col] = { ...piece, hasMoved: true };
       boardClone[fromRow][fromCol] = null;
-      // Handle en passant simulation
       if (move.enPassant) {
         boardClone[fromRow][move.col] = null;
       }
-      // Handle castling simulation: move rook accordingly
       if (move.castling) {
         if (move.castling === "kingside") {
           boardClone[fromRow][5] = boardClone[fromRow][7];
@@ -501,12 +512,9 @@
       const moves = getValidMoves(fromRow, fromCol);
       const move = moves.find(m => m.row === toRow && m.col === toCol);
       if (!move) return false;
-
-      // Handle en passant capture
       if (move.enPassant) {
         board[fromRow][toCol] = null;
       }
-      // Handle castling: move the rook accordingly
       if (move.castling) {
         if (move.castling === "kingside") {
           board[fromRow][5] = board[fromRow][7];
@@ -518,21 +526,17 @@
           board[fromRow][3].hasMoved = true;
         }
       }
-      // Move the piece
       board[toRow][toCol] = piece;
       board[fromRow][fromCol] = null;
       piece.hasMoved = true;
-      // Pawn promotion: auto promote to queen
       if (piece.type === "pawn" && ((piece.color === "white" && toRow === 0) || (piece.color === "black" && toRow === 7))) {
         piece.type = "queen";
       }
-      // Update en passant target if pawn moved two squares forward
       if (piece.type === "pawn" && Math.abs(toRow - fromRow) === 2) {
         enPassantTarget = { row: (fromRow + toRow) / 2, col: fromCol };
       } else {
         enPassantTarget = null;
       }
-      // Record move in history
       const moveRecord = {
         piece: piece.type,
         color: piece.color,
@@ -554,7 +558,7 @@
       return files[col] + ranks[row];
     }
 
-    // Convert a move record to basic standard algebraic notation
+    // Convert a move record to algebraic notation
     function moveToAlgebraic(record) {
       if (record.special === "kingside") return "O-O";
       if (record.special === "queenside") return "O-O-O";
