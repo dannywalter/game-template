@@ -1453,8 +1453,13 @@
         const moveNotation = from + to;
         
         moveHistory.push(moveNotation);
-
-
+        
+        // Live update the PGN display
+        const pgnOutput = document.getElementById("pgn-output");
+        if (pgnOutput) {
+          pgnOutput.textContent = "PGN: " + moveHistory.join(" ");
+        }
+        
         // Store last move for highlighting
         lastMove = {
           from: [fromRow, fromCol],
