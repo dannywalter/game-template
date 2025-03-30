@@ -659,9 +659,8 @@
               <div class="display">
                 <div class="display-header">CYBERPUNK CHESS</div>
                 <div class="display-content rules-content">
-                  • CLICK PIECES TO PLAY<br />
-                  • CAPTURE OPPONENT PIECES<br />
-                  • PROTECT YOUR KING
+<div id="pgn-output" style="font-size: 0.45rem; color: #00ffff; text-align: center; margin-top: 10px;"></div>
+
                 </div>
               </div>
             </div>
@@ -782,6 +781,7 @@
       };
 
       // Game state variables
+      let moveHistory = []; // PGN-style move tracker
       let boardState = JSON.parse(JSON.stringify(initialBoardState));
       let selectedPiece = null;
       let currentPlayer = "white";
@@ -1446,6 +1446,15 @@
         // Update board state
         boardState = newBoardState;
 
+        // Record move in PGN-like format
+        const cols = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
+        const from = cols[fromCol] + (8 - fromRow);
+        const to = cols[toCol] + (8 - toRow);
+        const moveNotation = from + to;
+        
+        moveHistory.push(moveNotation);
+
+
         // Store last move for highlighting
         lastMove = {
           from: [fromRow, fromCol],
@@ -1458,6 +1467,13 @@
         // Check for check or checkmate
         if (isCheckmate(currentPlayer, boardState)) {
           gameStatus = "checkmate";
+            // Show PGN in console and update display
+            console.log("PGN:", moveHistory.join(" "));
+            
+            const pgnOutput = document.getElementById("pgn-output");
+            if (pgnOutput) {
+              pgnOutput.textContent = "PGN: " + moveHistory.join(" ");
+            }
         } else if (isInCheck(currentPlayer, boardState)) {
           gameStatus = "check";
         } else {
