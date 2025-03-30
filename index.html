@@ -3,10 +3,11 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Cyber Chess</title>
+    <title>CH3SS</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
+    <script src="https://unpkg.com/@farcade/game-sdk@latest/dist/index.min.js"></script>
     <style>
       /* Global Styles */
       *,
@@ -105,10 +106,10 @@
 
       .piece {
         position: absolute;
-        top: 50%;
+        top: 59%;
         left: 50%;
         transform: translate(-50%, -50%);
-        font-size: calc(10px + 3vmin);
+        font-size: calc(17px + 3vmin);
         cursor: grab;
         width: 90%;
         height: 90%;
@@ -607,11 +608,10 @@
         }
       }
     </style>
-    <script src="https://unpkg.com/@farcade/game-sdk@latest/dist/index.min.js"></script>
   </head>
   <body>
     <div class="arcade">
-      <div class="title">CYBER CHESS</div>
+      <div class="title">CH3SS</div>
       <div class="game-area">
         <div id="board" class="board"></div>
         <div class="info-container">
@@ -793,6 +793,10 @@
       let gameMode = "ai"; // human, ai
       let aiColor = "black"; // AI will play as black by default
       let aiThinking = false; // Flag to prevent interactions while AI is thinking
+
+      // Farcade SDK variables
+      let isMuted = false; // Track if sound is muted
+      let gameScore = 0; // Track player's score
 
       // Track last move for highlighting
       let lastMove = {
@@ -1460,6 +1464,9 @@
           gameStatus = "playing";
         }
 
+        // Trigger haptic feedback when a piece is moved
+        triggerHapticFeedback();
+
         // Update the UI
         renderBoard();
 
@@ -1544,6 +1551,25 @@
           winnerElement.className = "winner";
           winnerElement.textContent = `${winner} WINS!`;
           gameStatusElement.appendChild(winnerElement);
+
+          // Calculate score for Farcade SDK
+          // 2 points for checkmate, 1 point for draw, 0 for loss
+          if (
+            (winner === "WHITE" && gameMode === "ai" && aiColor === "black") ||
+            (winner === "BLACK" && gameMode === "ai" && aiColor === "white")
+          ) {
+            // Player won against AI
+            gameScore = 2;
+          } else if (gameMode === "ai") {
+            // Player lost against AI
+            gameScore = 0;
+          }
+
+          // Send the score to Farcade SDK
+          updateFarcadeScore();
+
+          // Trigger haptic feedback for game over
+          triggerHapticFeedback();
         }
       }
 
@@ -1854,6 +1880,7 @@
         lastMove = { from: null, to: null };
         enPassantTarget = null;
         aiThinking = false; // Reset AI thinking state
+        gameScore = 0; // Reset the Farcade score
 
         // Reset captured pieces
         capturedPieces = {
@@ -1975,9 +2002,47 @@
         aiColorBlackButton.classList.add("active");
         aiColorWhiteButton.classList.remove("active");
       }
+
+      // Farcade SDK Integration
+
+      // Initialize SDK when the game is fully loaded and ready to play
+      window.addEventListener("DOMContentLoaded", () => {
+        if (window.FarcadeSDK) {
+          // Signal that the game is ready to play
+          window.FarcadeSDK.singlePlayer.actions.ready();
+
+          // Set up event handlers for Farcade SDK events
+
+          // Handle play_again event
+          window.FarcadeSDK.on("play_again", () => {
+            // Reset the game state
+            resetGame();
+          });
+
+          // Handle toggle_mute event
+          window.FarcadeSDK.on("toggle_mute", (data) => {
+            // Set game audio based on data.isMuted
+            isMuted = data.isMuted;
+            // Future audio can check isMuted before playing
+          });
+        }
+      });
+
+      // Function to send score to Farcade SDK
+      function updateFarcadeScore() {
+        if (window.FarcadeSDK) {
+          window.FarcadeSDK.singlePlayer.actions.gameOver({
+            score: gameScore,
+          });
+        }
+      }
+
+      // Function to trigger haptic feedback
+      function triggerHapticFeedback() {
+        if (window.FarcadeSDK) {
+          window.FarcadeSDK.singlePlayer.actions.hapticFeedback();
+        }
+      }
     </script>
   </body>
 </html>
-
-
-
